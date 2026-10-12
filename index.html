@@ -441,6 +441,10 @@
 <!-- Beat previews (30 s), metadata and pre-computed spectrum for the visualiser -->
 <script src="assets/beats/beats-data.js"></script>
 
+<!-- Anonymous visitor analytics (Supabase) — settings in assets/js/config.js, dashboard at admin.html -->
+<script src="assets/js/config.js"></script>
+<script src="assets/js/analytics.js"></script>
+
 <!-- ================= CONTENT + I18N ================= -->
 <script>
 const I18N = {
@@ -808,7 +812,7 @@ window.beat = (function () {
     api.index = (i + B.length) % B.length;
     audio.src = 'assets/beats/' + B[api.index].slug + '.mp3';
     renderNow(); renderList(); progress();
-    if (autoplay) audio.play().catch(() => {});
+    if (autoplay) { audio.play().catch(() => {}); if (window.AEMtrack) AEMtrack('beat_play', B[api.index].title); }
   };
   api.toggle = function () {
     if (!audio.src) return api.select(api.index);
@@ -890,12 +894,13 @@ function setMode(mode, animate = true) {
     if (mode === 'dev' && window.beat.playing) window.beat.pause();
   };
   if (!animate) return apply();
+  if (window.AEMtrack) AEMtrack('mode', mode);
   const w = document.getElementById('wipe');
   w.classList.remove('go'); void w.offsetWidth; w.classList.add('go');
   setTimeout(() => { apply(); window.scrollTo({ top: 0, behavior: 'instant' }); }, 450);
 }
 document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.set)));
-document.querySelectorAll('#langSeg button').forEach(b => b.addEventListener('click', () => applyLang(b.dataset.lang)));
+document.querySelectorAll('#langSeg button').forEach(b => b.addEventListener('click', () => { applyLang(b.dataset.lang); if (window.AEMtrack) AEMtrack('lang', b.dataset.lang); }));
 
 const io = new IntersectionObserver(entries => entries.forEach(e => {
   if (!e.isIntersecting) return;
@@ -956,6 +961,7 @@ document.addEventListener('click', e => {
     document.getElementById('mUrl').textContent = s.url;
     document.getElementById('mOpen').href = s.url;
     frame.src = s.url; setDevice('100%');
+    if (window.AEMtrack) AEMtrack('site_preview', s.name);
     modal.classList.add('open'); document.body.style.overflow = 'hidden';
     return;
   }
@@ -963,6 +969,7 @@ document.addEventListener('click', e => {
   if (v) {
     const p = PLACEMENTS[+v.dataset.video];
     window.beat.pause();
+    if (window.AEMtrack) AEMtrack('video_open', `${p.artist} — ${p.title}`);
     document.getElementById('vTitle').textContent = `${p.artist} — ${p.title}`;
     document.getElementById('vOpen').href = 'https://www.youtube.com/watch?v=' + p.id;
     vframe.src = `https://www.youtube-nocookie.com/embed/${p.id}?autoplay=1&rel=0`;

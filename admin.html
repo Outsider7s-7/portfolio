@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Admin — AEM.</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-dev-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root { --bg:#efece6; --card:#fbfaf7; --ink:#121214; --muted:#6a6862; --line:rgba(18,18,20,.12); --accent:#ff4a1c; --blue:#3150ff; --ok:#1f9d5c; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; min-height: 100vh; }
+  .display { font-family: 'Bricolage Grotesque', Inter, sans-serif; font-weight: 800; letter-spacing: -.03em; }
+  .mono, .label { font-family: 'JetBrains Mono', monospace; }
+  .label { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 20px; }
+  button, input, select { font: inherit; color: inherit; }
+  .btn { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: .5rem 1rem; font-weight: 600; cursor: pointer; transition: background .2s, color .2s; }
+  .btn:hover { background: var(--ink); color: var(--bg); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(.95); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: transparent; padding: .35rem .8rem; border-radius: 999px; font-weight: 600; font-size: .85rem; color: var(--muted); cursor: pointer; }
+  .seg button.on { background: var(--ink); color: var(--bg); }
+
+  header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; align-items: center; gap: 12px; padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .who { font-size: .85rem; color: var(--muted); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .grid { display: grid; gap: 16px; }
+  .kpis { grid-template-columns: repeat(6, 1fr); }
+  .two { grid-template-columns: 2fr 1fr; }
+  .three { grid-template-columns: repeat(3, 1fr); }
+  .four { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3, 1fr); } .four { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 800px) { .two, .three, .four { grid-template-columns: 1fr; } .kpis { grid-template-columns: repeat(2, 1fr); } }
+
+  .kpi .v { font-size: 2.3rem; line-height: 1.1; margin-top: 6px; }
+  .kpi .d { font-size: .8rem; margin-top: 4px; color: var(--muted); }
+  .up { color: var(--ok); } .down { color: #c2412a; }
+  .card h3 { font-size: 1.1rem; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .card h3 small { font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: var(--muted); font-weight: 400; letter-spacing: .1em; }
+
+  .bars { display: grid; gap: 9px; }
+  .bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; font-size: .88rem; }
+  .bar .n { font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: var(--muted); }
+  .bar .track { grid-column: 1 / -1; height: 6px; border-radius: 6px; background: rgba(18,18,20,.07); overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 6px; background: var(--accent); transform-origin: left; animation: grow .8s cubic-bezier(.2,.7,.2,1); }
+  .bar .fill.blue { background: var(--blue); } .bar .fill.ink { background: var(--ink); }
+  @keyframes grow { from { transform: scaleX(0); } }
+  .empty { color: var(--muted); font-size: .88rem; padding: 10px 0; }
+
+  #chart { width: 100%; height: 260px; display: block; }
+  .legend { display: flex; gap: 16px; font-size: .8rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  #tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); padding: 8px 10px; border-radius: 10px; font-size: .8rem; opacity: 0; transition: opacity .15s; z-index: 20; }
+
+  .split { display: flex; align-items: center; gap: 20px; }
+  .split svg { width: 140px; height: 140px; flex: none; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 400; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 600; background: rgba(18,18,20,.07); }
+  .pill.pageview { background: #ffe1d6; color: #a2300f; } .pill.beat_play, .pill.video_open { background: #dfe4ff; color: #2335b8; }
+  .pill.contact_click { background: #d8f3e4; color: #13693e; }
+  .scroll { overflow: auto; max-height: 460px; }
+
+  .banner { background: var(--ink); color: var(--bg); border-radius: 14px; padding: 12px 16px; font-size: .9rem; display: flex; gap: 10px; align-items: center; }
+  .banner b { color: var(--accent); }
+
+  /* login */
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  #login form { width: 100%; max-width: 400px; }
+  #login input { width: 100%; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: .8rem 1rem; margin-top: 6px; outline: none; }
+  #login input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,74,28,.15); }
+  #loginErr { color: #c2412a; font-size: .85rem; min-height: 1.3em; margin-top: 10px; }
+  .hidden { display: none !important; }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .7s linear infinite; vertical-align: -2px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="login" class="hidden">
+  <form class="card" style="padding:32px" autocomplete="on">
+    <p class="display" style="font-size:2rem">AEM<span style="color:var(--accent)">.</span> Admin</p>
+    <p class="who" style="margin-top:4px">Sign in to see your portfolio's visitors.</p>
+    <label class="label" style="display:block;margin-top:24px">Email</label>
+    <input id="email" type="email" required autocomplete="username" />
+    <label class="label" style="display:block;margin-top:16px">Password</label>
+    <input id="password" type="password" required autocomplete="current-password" />
+    <p id="loginErr"></p>
+    <button class="btn primary" style="width:100%;margin-top:8px;padding:.8rem" id="loginBtn" type="submit">Sign in</button>
+    <p class="who" style="margin-top:16px;text-align:center"><a href="index.html" style="color:inherit">← Back to the portfolio</a></p>
+  </form>
+</section>
+
+<!-- DASHBOARD -->
+<div id="app" class="hidden">
+  <header>
+    <div class="wrap">
+      <a href="index.html" class="display" style="font-size:1.5rem;text-decoration:none;color:inherit">AEM<span style="color:var(--accent)">.</span></a>
+      <span class="label" style="margin-left:4px">Analytics</span>
+      <span class="grow"></span>
+      <div class="seg" id="range"><button data-d="1">24h</button><button data-d="7">7d</button><button data-d="30" class="on">30d</button><button data-d="90">90d</button></div>
+      <button class="btn" id="refresh" title="Refresh">↻</button>
+      <button class="btn" id="csv">Export CSV</button>
+      <span class="who" id="who"></span>
+      <button class="btn" id="logout">Sign out</button>
+    </div>
+  </header>
+
+  <main class="wrap" style="padding-top:24px;padding-bottom:60px;display:grid;gap:16px">
+    <div id="demo" class="banner hidden">● <span><b>Demo data.</b> Add your Supabase URL and key in <span class="mono">assets/js/config.js</span> to see real visitors.</span></div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>Visits over time <span class="legend"><span><i style="background:var(--accent)"></i>Page views</span><span><i style="background:var(--ink)"></i>Unique visitors</span></span></h3>
+        <svg id="chart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="card">
+        <h3>Profile opened <small>DEV vs PRODUCER</small></h3>
+        <div class="split" id="split"></div>
+        <h3 style="margin-top:22px">Language</h3>
+        <div class="bars" id="langs"></div>
+      </div>
+    </div>
+
+    <div class="grid four">
+      <div class="card"><h3>Countries <small>APPROX.</small></h3><div class="bars" id="countries"></div></div>
+      <div class="card"><h3>Sources</h3><div class="bars" id="refs"></div></div>
+      <div class="card"><h3>Devices</h3><div class="bars" id="devices"></div><h3 style="margin-top:22px">Browsers</h3><div class="bars" id="browsers"></div></div>
+      <div class="card"><h3>Sections reached <small>% OF SESSIONS</small></h3><div class="bars" id="sections"></div></div>
+    </div>
+
+    <div class="grid four">
+      <div class="card"><h3>Beats played</h3><div class="bars" id="beats"></div></div>
+      <div class="card"><h3>Placements watched</h3><div class="bars" id="videos"></div></div>
+      <div class="card"><h3>Website previews</h3><div class="bars" id="previews"></div></div>
+      <div class="card"><h3>Contact clicks</h3><div class="bars" id="contacts"></div></div>
+    </div>
+
+    <div class="card">
+      <h3>Recent activity <small id="recentCount"></small></h3>
+      <div class="scroll"><table><thead><tr><th>When</th><th>Event</th><th>Detail</th><th>Profile</th><th>Device</th><th>Country</th><th>Source</th></tr></thead><tbody id="recent"></tbody></table></div>
+    </div>
+  </main>
+</div>
+<div id="tip"></div>
+
+<script src="assets/js/config.js"></script>
+<script>
+const CFG = window.AEM_CONFIG || {};
+const CONFIGURED = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+let sb = null, DAYS = 30, EVENTS = [];
+
+/* ---------------- data ---------------- */
+async function fetchEvents(days) {
+  if (!CONFIGURED) return demoEvents(days);
+  const since = new Date(Date.now() - days * 864e5).toISOString();
+  const all = [];
+  for (let page = 0; page < 50; page++) {            // Supabase returns 1000 rows per request
+    const { data, error } = await sb.from('events').select('*').gte('created_at', since)
+      .order('created_at', { ascending: false }).range(page * 1000, page * 1000 + 999);
+    if (error) throw error;
+    all.push(...data);
+    if (data.length < 1000) break;
+  }
+  return all;
+}
+
+function demoEvents(days) {
+  // realistic-looking fake data so the dashboard can be previewed before Supabase is set up
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pick = (arr, w) => { let r = rnd() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < arr.length; i++) { r -= w[i]; if (r <= 0) return arr[i]; } return arr[0]; };
+  const out = [], now = Date.now();
+  const sections = ['about', 'work', 'sites', 'experience', 'beats', 'placements', 'studio', 'contact'];
+  const beats = ['Dark Drillerz', 'Dark Rider', 'Section', 'Wavy Kif', 'Dark Souls III', 'Afro Dark', 'Latino', 'Korean Vibes'];
+  const vids = ['Mic One — Viva Morocco', 'Sanfara — Ma Vie ft. Abdeelgha4', 'Abdeelgha4 — Symphonia', 'MONS — Mask', 'Mic One — Walaa · ولاء', 'Tendresse — Dopeness (Drill Freestyle)', 'MONS — Liyam'];
+  const visitors = Array.from({ length: Math.max(40, days * 9) }, (_, i) => 'v' + i);
+  for (let d = days - 1; d >= 0; d--) {
+    const n = Math.round((days === 1 ? 26 : 8 + rnd() * 14) * (1 + (days - d) / days * 0.6));
+    for (let s = 0; s < n; s++) {
+      const t0 = now - d * 864e5 - rnd() * (days === 1 ? 864e5 : 864e5);
+      const base = {
+        visitor_id: visitors[Math.floor(Math.pow(rnd(), 1.6) * visitors.length)], session_id: 's' + d + '-' + s,
+        mode: pick(['dev', 'producer'], [6, 4]), lang: pick(['fr', 'en', 'ar'], [5, 3, 2]), path: '/',
+        referrer: pick([null, 'www.linkedin.com', 'github.com', 'web.whatsapp.com', 'www.google.com', 'l.instagram.com'], [5, 3, 1.4, 2, 1.5, 1.6]),
+        device: pick(['mobile', 'desktop', 'tablet'], [5, 4, 1]), browser: pick(['Chrome', 'Safari', 'Edge', 'Firefox', 'Samsung'], [6, 3, 1.4, .8, .8]),
+        os: 'Windows', screen: '1920x1080', timezone: 'Africa/Casablanca', country: pick(['Morocco', 'France', 'Canada', 'Belgium', 'Spain', 'United States'], [10, 2.5, 2, 1, .8, .6]),
+      };
+      let t = t0; const ev = (type, label) => { out.push({ ...base, type, label, created_at: new Date(t).toISOString() }); t += 8e3 + rnd() * 60e3; };
+      ev('pageview', null);
+      const k = Math.floor(rnd() * 6);
+      for (let j = 0; j < k; j++) ev('section_view', base.mode === 'dev' ? pick(sections.slice(0, 4).concat(['contact']), [6, 5, 4, 3, 2]) : pick(['beats', 'placements', 'studio', 'about', 'contact'], [6, 5, 3, 4, 2]));
+      if (base.mode === 'producer' && rnd() < .55) ev('beat_play', pick(beats, [5, 4, 4, 3, 3, 2, 2, 2]));
+      if (base.mode === 'producer' && rnd() < .35) ev('video_open', pick(vids, [5, 5, 4, 3, 3, 2, 2]));
+      if (base.mode === 'dev' && rnd() < .3) ev('site_preview', pick(['Atlas Equipements', 'ABDEELGHA4', 'LBENJ'], [4, 3, 2]));
+      if (rnd() < .15) ev('mode', base.mode === 'dev' ? 'producer' : 'dev');
+      if (rnd() < .08) ev('contact_click', pick(['Email', 'WhatsApp', 'LinkedIn', 'GitHub'], [3, 4, 3, 1]));
+    }
+  }
+  return out.sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+/* ---------------- helpers ---------------- */
+const count = (rows, key) => { const m = new Map(); rows.forEach(r => { const k = typeof key === 'function' ? key(r) : r[key]; if (k == null || k === '') return; m.set(k, (m.get(k) || 0) + 1); }); return [...m].sort((a, b) => b[1] - a[1]); };
+const uniq = (rows, key) => new Set(rows.map(r => r[key])).size;
+const fmtN = n => n >= 1000 ? (n / 1000).toFixed(n >= 1e4 ? 0 : 1) + 'k' : String(n);
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
+const hourKey = d => { const x = new Date(d); return dayKey(x) + ' ' + String(x.getHours()).padStart(2, '0'); };
+const ago = iso => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.floor(s / 60) + ' min ago' : s < 86400 ? Math.floor(s / 3600) + ' h ago' : new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) + ' ' + new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+const LABEL = { pageview: 'Page view', mode: 'Switched profile', lang: 'Language', section_view: 'Section', beat_play: 'Beat played', video_open: 'Video opened', site_preview: 'Site preview', contact_click: 'Contact click' };
+const SECTION = { about: 'About', work: 'Products', sites: 'Websites', experience: 'Experience', beats: 'Beats', placements: 'Placements', studio: 'Studio', contact: 'Contact' };
+
+function bars(el, entries, { total, color = '', max = 8, fmt } = {}) {
+  if (!entries.length) { $(el).innerHTML = '<p class="empty">No data yet.</p>'; return; }
+  const top = entries.slice(0, max), m = Math.max(...top.map(e => e[1]));
+  $(el).innerHTML = top.map(([k, v]) => `
+    <div class="bar"><span>${esc(k)}</span><span class="n">${fmt ? fmt(v) : fmtN(v)}${total ? ` · ${pct(v, total)}%` : ''}</span>
+    <div class="track"><div class="fill ${color}" style="width:${Math.max(3, v / m * 100)}%"></div></div></div>`).join('');
+}
+
+/* ---------------- render ---------------- */
+function render() {
+  const E = EVENTS, now = Date.now(), half = DAYS * 864e5 / 2;
+  const PV = E.filter(e => e.type === 'pageview');
+  const sessions = new Map();
+  E.forEach(e => { const t = +new Date(e.created_at); const s = sessions.get(e.session_id) || { a: t, b: t }; s.a = Math.min(s.a, t); s.b = Math.max(s.b, t); sessions.set(e.session_id, s); });
+  const avgSec = sessions.size ? [...sessions.values()].reduce((a, s) => a + (s.b - s.a), 0) / sessions.size / 1000 : 0;
+  const recentHalf = PV.filter(e => now - new Date(e.created_at) < half).length, olderHalf = PV.length - recentHalf;
+  const trend = olderHalf ? Math.round((recentHalf - olderHalf) / olderHalf * 100) : null;
+
+  const k = [
+    ['Page views', fmtN(PV.length), trend == null ? 'last ' + (DAYS === 1 ? '24 h' : DAYS + ' days') : `<span class="${trend >= 0 ? 'up' : 'down'}">${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend)}%</span> vs previous half`],
+    ['Unique visitors', fmtN(uniq(PV, 'visitor_id')), `${fmtN(sessions.size)} sessions`],
+    ['Avg. time on site', `${Math.floor(avgSec / 60)}:${String(Math.round(avgSec % 60)).padStart(2, '0')}`, 'per session'],
+    ['Beats played', fmtN(E.filter(e => e.type === 'beat_play').length), 'producer profile'],
+    ['Videos opened', fmtN(E.filter(e => e.type === 'video_open').length), 'placements'],
+    ['Contact clicks', fmtN(E.filter(e => e.type === 'contact_click').length), 'email · WhatsApp · social'],
+  ];
+  $('kpis').innerHTML = k.map(([l, v, d], i) => `<div class="card kpi"><p class="label">${l}</p><p class="display v" ${i === 0 ? 'style="color:var(--accent)"' : ''}>${v}</p><p class="d">${d}</p></div>`).join('');
+
+  drawChart(PV);
+
+  // dev vs producer: profile shown at page view + explicit switches
+  const dev = E.filter(e => (e.type === 'pageview' && e.mode === 'dev') || (e.type === 'mode' && e.label === 'dev')).length;
+  const prod = E.filter(e => (e.type === 'pageview' && e.mode === 'producer') || (e.type === 'mode' && e.label === 'producer')).length;
+  const tot = dev + prod || 1, C = 2 * Math.PI * 52, dl = dev / tot * C;
+  $('split').innerHTML = `
+    <svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="52" fill="none" stroke="#3150ff" stroke-width="18"/>
+      <circle cx="70" cy="70" r="52" fill="none" stroke="#ff4a1c" stroke-width="18" stroke-dasharray="${dl} ${C}" transform="rotate(-90 70 70)"/>
+      <text x="70" y="76" text-anchor="middle" font-family="Bricolage Grotesque, Inter" font-weight="800" font-size="22">${pct(dev, tot)}%</text></svg>
+    <div class="bars" style="flex:1">
+      <div class="bar"><span>Developer</span><span class="n">${fmtN(dev)}</span><div class="track"><div class="fill" style="width:${pct(dev, tot)}%"></div></div></div>
+      <div class="bar"><span>Producer · Outsider7s</span><span class="n">${fmtN(prod)}</span><div class="track"><div class="fill blue" style="width:${pct(prod, tot)}%"></div></div></div>
+    </div>`;
+
+  const LANGN = { en: 'English', fr: 'Français', ar: 'العربية' };
+  bars('langs', count(PV, e => LANGN[e.lang] || e.lang), { total: PV.length, color: 'ink' });
+  bars('countries', count(PV, 'country'), { total: PV.length });
+  bars('refs', count(PV, e => e.referrer || 'Direct / WhatsApp app'), { total: PV.length, color: 'ink' });
+  bars('devices', count(PV, e => e.device ? e.device[0].toUpperCase() + e.device.slice(1) : null), { total: PV.length, max: 3 });
+  bars('browsers', count(PV, 'browser'), { total: PV.length, color: 'ink', max: 5 });
+  const secSessions = new Map(); E.filter(e => e.type === 'section_view').forEach(e => { const s = secSessions.get(e.label) || new Set(); s.add(e.session_id); secSessions.set(e.label, s); });
+  bars('sections', [...secSessions].map(([k, s]) => [SECTION[k] || k, s.size]).sort((a, b) => b[1] - a[1]), { fmt: v => pct(v, sessions.size) + '%', color: 'blue' });
+  bars('beats', count(E.filter(e => e.type === 'beat_play'), 'label'), { color: 'blue' });
+  bars('videos', count(E.filter(e => e.type === 'video_open'), 'label'), { color: 'blue' });
+  bars('previews', count(E.filter(e => e.type === 'site_preview'), 'label'));
+  bars('contacts', count(E.filter(e => e.type === 'contact_click'), 'label'), { color: 'ink' });
+
+  const R = E.filter(e => e.type !== 'section_view').slice(0, 80);
+  $('recentCount').textContent = `LAST ${R.length} EVENTS`;
+  $('recent').innerHTML = R.length ? R.map(e => `<tr>
+    <td class="mono" style="white-space:nowrap">${esc(ago(e.created_at))}</td>
+    <td><span class="pill ${esc(e.type)}">${esc(LABEL[e.type] || e.type)}</span></td>
+    <td>${esc(e.label || (e.type === 'pageview' ? (e.lang || '').toUpperCase() : ''))}</td>
+    <td>${e.mode === 'producer' ? 'Producer' : 'Developer'}</td>
+    <td>${esc(e.device || '')} · ${esc(e.browser || '')}</td>
+    <td>${esc(e.country || '')}</td>
+    <td>${esc(e.referrer || 'Direct')}</td></tr>`).join('') : '<tr><td colspan="7" class="empty">No visits yet in this period.</td></tr>';
+}
+
+function drawChart(PV) {
+  const svg = $('chart'), W = 800, H = 260, P = { l: 34, r: 10, t: 14, b: 26 };
+  const byHour = DAYS === 1, n = byHour ? 24 : DAYS, keys = [];
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(Date.now() - i * (byHour ? 36e5 : 864e5)); keys.push(byHour ? hourKey(d) : dayKey(d)); }
+  const views = new Map(keys.map(k => [k, 0])), vis = new Map(keys.map(k => [k, new Set()]));
+  PV.forEach(e => { const k = byHour ? hourKey(e.created_at) : dayKey(e.created_at); if (views.has(k)) { views.set(k, views.get(k) + 1); vis.get(k).add(e.visitor_id); } });
+  const a = keys.map(k => views.get(k)), b = keys.map(k => vis.get(k).size);
+  const max = Math.max(4, ...a), step = Math.pow(10, Math.floor(Math.log10(max))) * (max / Math.pow(10, Math.floor(Math.log10(max))) > 5 ? 2 : 1);
+  const top = Math.ceil(max / step) * step;
+  const x = i => P.l + i * (W - P.l - P.r) / Math.max(1, n - 1), y = v => H - P.b - v / top * (H - P.t - P.b);
+  const line = arr => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  let g = '';
+  for (let v = 0; v <= top; v += step) g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(18,18,20,.08)"/><text x="${P.l - 8}" y="${y(v) + 4}" text-anchor="end" font-size="10" font-family="JetBrains Mono" fill="#6a6862">${v}</text>`;
+  const every = Math.ceil(n / 8);
+  keys.forEach((k, i) => { if (i % every === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="10" font-family="JetBrains Mono" fill="#6a6862">${byHour ? k.slice(-2) + 'h' : k.slice(8) + '/' + k.slice(5, 7)}</text>`; });
+  svg.innerHTML = `${g}
+    <path d="${line(a)}L${x(n - 1)},${y(0)}L${x(0)},${y(0)}Z" fill="rgba(255,74,28,.12)"/>
+    <path d="${line(a)}" fill="none" stroke="#ff4a1c" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
+    <path d="${line(b)}" fill="none" stroke="#121214" stroke-width="1.6" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+    <line id="hov" y1="${P.t}" y2="${H - P.b}" stroke="rgba(18,18,20,.25)" opacity="0"/>`;
+  svg.onmousemove = ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+    const i = Math.max(0, Math.min(n - 1, Math.round((px - P.l) / ((W - P.l - P.r) / Math.max(1, n - 1)))));
+    const h = svg.querySelector('#hov'); h.setAttribute('x1', x(i)); h.setAttribute('x2', x(i)); h.setAttribute('opacity', 1);
+    const t = $('tip'); t.style.opacity = 1; t.style.left = ev.clientX + 14 + 'px'; t.style.top = ev.clientY - 10 + 'px';
+    t.innerHTML = `<b>${byHour ? keys[i].slice(-2) + ':00' : new Date(keys[i]).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</b><br>${a[i]} views · ${b[i]} visitors`;
+  };
+  svg.onmouseleave = () => { $('tip').style.opacity = 0; const h = svg.querySelector('#hov'); if (h) h.setAttribute('opacity', 0); };
+}
+
+async function load() {
+  $('refresh').innerHTML = '<span class="spin"></span>';
+  try { EVENTS = await fetchEvents(DAYS); render(); }
+  catch (e) { $('recent').innerHTML = `<tr><td colspan="7" class="empty">Could not load data: ${esc(e.message || e)}</td></tr>`; }
+  $('refresh').textContent = '↻';
+}
+
+function csv() {
+  const cols = ['created_at', 'type', 'label', 'mode', 'lang', 'device', 'browser', 'os', 'country', 'timezone', 'referrer', 'screen', 'visitor_id', 'session_id'];
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const blob = new Blob(['﻿' + [cols.join(','), ...EVENTS.map(e => cols.map(c => q(e[c])).join(','))].join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `portfolio-visits-${DAYS}d-${dayKey(new Date())}.csv`; a.click();
+}
+
+/* ---------------- auth + wiring ---------------- */
+function showApp(email) {
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('who').textContent = email || '';
+  try { localStorage.setItem('aem-notrack', '1'); } catch (e) {}   // don't count the admin's own visits
+  load();
+}
+function showLogin() { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); $('email').focus(); }
+
+$('range').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; DAYS = +b.dataset.d; [...$('range').children].forEach(x => x.classList.toggle('on', x === b)); load(); });
+$('refresh').addEventListener('click', load);
+$('csv').addEventListener('click', csv);
+
+if (!CONFIGURED) {
+  $('demo').classList.remove('hidden');
+  $('logout').classList.add('hidden');
+  showApp('Demo mode');
+} else {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  s.onload = async () => {
+    sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
+    const { data } = await sb.auth.getSession();
+    data.session ? showApp(data.session.user.email) : showLogin();
+  };
+  s.onerror = () => { showLogin(); $('loginErr').textContent = 'Could not load the login library. Check your connection.'; };
+  document.head.appendChild(s);
+
+  $('login').querySelector('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!sb) return;
+    $('loginErr').textContent = ''; $('loginBtn').innerHTML = '<span class="spin"></span>';
+    const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+    $('loginBtn').textContent = 'Sign in';
+    if (error) { $('loginErr').textContent = error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message; return; }
+    if (CFG.adminEmail && data.user.email.toLowerCase() !== CFG.adminEmail.toLowerCase()) { await sb.auth.signOut(); $('loginErr').textContent = 'This account is not the admin.'; return; }
+    showApp(data.user.email);
+  });
+  $('logout').addEventListener('click', async () => { await sb.auth.signOut(); EVENTS = []; showLogin(); });
+}
+</script>
+</body>
+</html>
