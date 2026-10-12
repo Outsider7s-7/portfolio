@@ -9,6 +9,11 @@
 <meta property="og:description" content="Full-Stack Software Architect and music producer Outsider7s, Casablanca." />
 <meta property="og:image" content="assets/img/og-image.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-dev-32.png" id="favSmall" />
+<link rel="icon" type="image/png" sizes="192x192" href="assets/img/favicon-dev-192.png" id="favLarge" />
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+<meta name="theme-color" content="#121214" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Readex+Pro:wght@300;400;600;700&display=swap" rel="stylesheet" />
@@ -234,7 +239,7 @@
       <div class="hidden lg:block lg:col-span-5 h-[62vh] hud reveal">
         <i></i><i></i><i></i><i></i>
         <div class="absolute top-4 inset-x-5 flex justify-between label c-muted" dir="ltr">
-          <span class="dev-only">ARCH.STACK / v3</span><span class="prod-only">SPECTRUM / LIVE</span>
+          <span class="dev-only"></span><span class="prod-only">SPECTRUM / LIVE</span>
           <span id="hudR"></span>
         </div>
         <div class="absolute bottom-4 inset-x-5 flex justify-between label c-muted" dir="ltr">
@@ -877,6 +882,11 @@ function setMode(mode, animate = true) {
     typeRoles();
     observeReveals();
     if (window.scene3d) window.scene3d.setMode(mode);
+    // tab icon + title follow the active profile
+    const k = mode === 'dev' ? 'dev' : 'prod';
+    document.getElementById('favSmall').href = `assets/img/favicon-${k}-32.png`;
+    document.getElementById('favLarge').href = `assets/img/favicon-${k}-192.png`;
+    document.title = mode === 'dev' ? 'Ayoub El Mouradi — Full-Stack Developer' : 'Outsider7s — Music Producer';
     if (mode === 'dev' && window.beat.playing) window.beat.pause();
   };
   if (!animate) return apply();
@@ -1006,46 +1016,160 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 1.4));
 const dirL = new THREE.DirectionalLight(0xffffff, 1.6); dirL.position.set(3, 6, 4); scene.add(dirL);
 const anchor = new THREE.Group(); scene.add(anchor);
 
-/* ---------- DEVELOPER: exploded architecture stack (UI / API / DATA) ---------- */
+/* ---------- DEVELOPER: architecture stack — DATA (databases) / API (hex hub) / UI (app screens) ---------- */
 const dev = new THREE.Group(); anchor.add(dev);
 const slabMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 });
 const edgeMat = new THREE.LineBasicMaterial();
 const accentMat = new THREE.MeshBasicMaterial();
 const labelMats = [];
-function makeLabel(text) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 160;
-  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.font = '700 110px "JetBrains Mono", monospace'; g.textBaseline = 'middle'; g.fillText(text, 8, 84);
-  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
-  const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true }); labelMats.push(m);
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.4), m); mesh.rotation.x = -Math.PI / 2; return mesh;
+const INK = '#141416', ACC = '#ff4a1c', PAPER = '#f7f5f0', MUTE = '#a8a39a';
+
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
-const layers = [];
-const slabGeo = new THREE.BoxGeometry(3, 0.12, 2.1);
-const slabEdges = new THREE.EdgesGeometry(slabGeo);
-['DATA', 'API', 'UI'].forEach((name, i) => {
+function rr(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+function makeLabel(text) {
+  const tex = canvasTex(512, 160, g => { g.fillStyle = '#fff'; g.font = '700 110px "JetBrains Mono", monospace'; g.textBaseline = 'middle'; g.fillText(text, 8, 84); });
+  const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true }); labelMats.push(m);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.28), m); mesh.rotation.x = -Math.PI / 2; return mesh;
+}
+function slab(name) {
   const g = new THREE.Group();
-  g.add(new THREE.Mesh(slabGeo, slabMat));
-  g.add(new THREE.LineSegments(slabEdges, edgeMat));
-  const lab = makeLabel(name); lab.position.set(-0.75, 0.065, 0.7); g.add(lab);
-  const rnd = (a, b) => a + Math.random() * (b - a);
-  for (let k = 0; k < 4 + i; k++) {
-    const w = rnd(0.25, 0.55), h = rnd(0.12, 0.45), d = rnd(0.25, 0.5);
-    const bg = new THREE.BoxGeometry(w, h, d);
-    const box = new THREE.Mesh(bg, k === 0 ? accentMat : slabMat);
-    box.position.set(rnd(-1.1, 1.2), 0.06 + h / 2, rnd(-0.75, 0.3));
-    const e = new THREE.LineSegments(new THREE.EdgesGeometry(bg), edgeMat); e.position.copy(box.position);
-    g.add(box, e);
+  const geo = new THREE.BoxGeometry(3, 0.12, 2.1);
+  g.add(new THREE.Mesh(geo, slabMat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+  const lab = makeLabel(name); lab.position.set(-1.0, 0.065, 0.85); g.add(lab);
+  return g;
+}
+
+/* DATA — a cluster of database cylinders wired to a primary DB */
+const dataL = slab('DATA');
+const dbMat = new THREE.MeshStandardMaterial({ color: 0xd9d5cc, roughness: 0.35, metalness: 0.35 });
+function database(r, accent) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 3; k++) {
+    const geo = new THREE.CylinderGeometry(r, r, r * 0.42, 40);
+    const disc = new THREE.Mesh(geo, accent && k === 2 ? accentMat : dbMat);
+    disc.position.y = 0.06 + r * 0.21 + k * r * 0.5;
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat); e.position.copy(disc.position);
+    g.add(disc, e);
   }
-  g.userData.i = i - 1;
-  dev.add(g); layers.push(g);
+  return g;
+}
+const hubDb = database(0.3, true); hubDb.position.set(0.2, 0, -0.1); dataL.add(hubDb);
+const linkMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.45 });
+[[-1.0, -0.6], [-0.9, 0.45], [1.25, -0.65], [1.2, 0.5], [0.15, 0.75], [-0.25, -0.85]].forEach(([x, z]) => {
+  const d = database(0.16, false); d.position.set(x, 0, z); dataL.add(d);
+  dataL.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.2, 0.1, -0.1), new THREE.Vector3(x, 0.1, z)]), linkMat));
 });
-const pipes = [[-1.2, -0.6], [0.2, 0.5], [1.1, -0.3], [-0.3, -0.8]];
+
+/* API — hexagonal REST hub with endpoint satellites */
+const apiL = slab('API');
+function hexTex(text, bg, fg, size) {
+  return canvasTex(256, 256, g => {
+    g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = fg; g.font = `800 ${size}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 132);
+  });
+}
+function hex(r, h, text, bg, fg, size) {
+  const g = new THREE.Group();
+  const geo = new THREE.CylinderGeometry(r, r, h, 6);
+  const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: bg, roughness: 0.5 }));
+  body.position.y = 0.06 + h / 2;
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat); e.position.copy(body.position);
+  const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.98, 6), new THREE.MeshBasicMaterial({ map: hexTex(text, bg, fg, size) }));
+  top.rotation.x = -Math.PI / 2; top.rotation.z = Math.PI / 6; top.material.map.center.set(0.5, 0.5); top.material.map.rotation = Math.PI / 6; top.position.y = 0.06 + h + 0.002;
+  g.add(body, e, top); return g;
+}
+const apiHub = hex(0.5, 0.2, 'API', ACC, '#ffffff', 92); apiHub.position.set(0.1, 0, -0.05); apiL.add(apiHub);
+[['</>', -1.05, -0.55], ['GET', -1.0, 0.45], ['POST', 1.2, -0.55], ['JWT', 1.2, 0.45], ['{ }', 0.15, 0.75], ['SQL', 0.1, -0.85]].forEach(([t, x, z]) => {
+  const s = hex(0.24, 0.1, t, PAPER, INK, t.length > 3 ? 54 : 70); s.position.set(x, 0, z); apiL.add(s);
+  apiL.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.1, 0.12, -0.05), new THREE.Vector3(x, 0.12, z)]), linkMat));
+});
+
+/* UI — screenshots of the apps: monitoring dashboard, Khlisni mobile, station map */
+const uiL = slab('UI');
+const dashTex = canvasTex(1024, 640, (g, w, h) => {
+  g.fillStyle = '#f4f2ee'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#e6e2da'; g.fillRect(0, 0, w, 44);
+  ['#ff5f57', '#febc2e', '#28c840'].forEach((c, i) => { g.fillStyle = c; g.beginPath(); g.arc(24 + i * 22, 22, 7, 0, 7); g.fill(); });
+  g.fillStyle = '#fff'; rr(g, 110, 11, 420, 22, 11); g.fill(); g.fillStyle = MUTE; g.font = '15px monospace'; g.fillText('monitor / stations', 126, 28);
+  g.fillStyle = INK; g.fillRect(0, 44, 170, h - 44);
+  g.fillStyle = ACC; rr(g, 18, 70, 134, 34, 8); g.fill();
+  g.fillStyle = '#fff'; g.font = '600 16px sans-serif'; g.fillText('Dashboard', 34, 93);
+  ['Stations', 'Audits', 'Photos', 'Reports'].forEach((t, i) => { g.fillStyle = '#9a978f'; g.fillText(t, 34, 145 + i * 40); });
+  [['Stations', '400+'], ['Uptime', '98.6%'], ['Audits', '1,284']].forEach(([k, v], i) => {
+    const x = 196 + i * 270; g.fillStyle = '#fff'; rr(g, x, 70, 250, 110, 14); g.fill();
+    g.fillStyle = MUTE; g.font = '600 16px sans-serif'; g.fillText(k.toUpperCase(), x + 20, 104);
+    g.fillStyle = i === 0 ? ACC : INK; g.font = '800 42px sans-serif'; g.fillText(v, x + 20, 156);
+  });
+  g.fillStyle = '#fff'; rr(g, 196, 200, 520, 410, 14); g.fill();
+  g.strokeStyle = '#ece9e3'; g.lineWidth = 2; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(216, 260 + i * 80); g.lineTo(696, 260 + i * 80); g.stroke(); }
+  g.strokeStyle = ACC; g.lineWidth = 5; g.beginPath();
+  [0.55, 0.62, 0.48, 0.7, 0.66, 0.82, 0.74, 0.9, 0.86, 0.95].forEach((v, i) => { const x = 220 + i * 52, y = 590 - v * 320; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  g.fillStyle = INK; g.font = '700 20px sans-serif'; g.fillText('Station performance', 216, 236);
+  g.fillStyle = '#fff'; rr(g, 736, 200, 260, 410, 14); g.fill();
+  g.fillStyle = INK; g.font = '700 20px sans-serif'; g.fillText('Latest audits', 756, 236);
+  for (let i = 0; i < 7; i++) {
+    g.fillStyle = i % 3 === 0 ? ACC : '#2fbf71'; g.beginPath(); g.arc(768, 278 + i * 46, 7, 0, 7); g.fill();
+    g.fillStyle = '#d8d4cc'; rr(g, 786, 270 + i * 46, 120 + (i * 37) % 70, 14, 7); g.fill();
+  }
+});
+const phoneTex = canvasTex(400, 820, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  g.fillStyle = INK; rr(g, 20, 60, 360, 190, 26); g.fill();
+  g.fillStyle = '#fff'; g.font = '800 46px "Readex Pro", sans-serif'; g.textAlign = 'right'; g.direction = 'rtl'; g.fillText('خالص', 350, 120);
+  g.direction = 'ltr'; g.textAlign = 'left'; g.fillStyle = '#9a978f'; g.font = '600 18px sans-serif'; g.fillText('BALANCE', 46, 176);
+  g.fillStyle = ACC; g.font = '800 46px sans-serif'; g.fillText('+1 250 MAD', 44, 226);
+  [['Yassine', '+300', true], ['Sara', '-120', false], ['Karim', '+450', true], ['Imane', '-80', false], ['Omar', '+700', true]].forEach(([n, v, pos], i) => {
+    const y = 290 + i * 96; g.fillStyle = '#f4f2ee'; rr(g, 20, y, 360, 80, 18); g.fill();
+    g.fillStyle = pos ? ACC : INK; g.beginPath(); g.arc(62, y + 40, 22, 0, 7); g.fill();
+    g.fillStyle = INK; g.font = '700 24px sans-serif'; g.fillText(n, 100, y + 48);
+    g.fillStyle = pos ? '#1f9d5c' : '#d0402a'; g.font = '800 24px sans-serif'; g.textAlign = 'right'; g.fillText(v + ' MAD', 360, y + 48); g.textAlign = 'left';
+  });
+});
+const mapTex = canvasTex(820, 600, (g, w, h) => {
+  g.fillStyle = '#ece8df'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#ffffff'; g.lineWidth = 14;
+  [[0, 120, w, 220], [0, 420, w, 330], [180, 0, 260, h], [560, 0, 480, h], [0, 560, w, 600]].forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
+  g.fillStyle = '#cfe3d4'; rr(g, 300, 250, 160, 110, 20); g.fill();
+  [[120, 90], [330, 180], [610, 140], [700, 380], [240, 470], [470, 520], [90, 330], [520, 300]].forEach(([x, y], i) => {
+    g.fillStyle = i === 3 ? INK : ACC; g.beginPath(); g.arc(x, y - 18, 16, Math.PI, 0); g.lineTo(x, y + 8); g.closePath(); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y - 18, 6, 0, 7); g.fill();
+  });
+  g.fillStyle = '#fff'; rr(g, 20, 20, 250, 70, 14); g.fill();
+  g.fillStyle = INK; g.font = '800 22px sans-serif'; g.fillText('Station #214', 38, 52);
+  g.fillStyle = '#1f9d5c'; g.font = '700 18px sans-serif'; g.fillText('● Audit OK', 38, 78);
+});
+const frameMat = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.4 });
+function screen(tex, w, h, x, z, ry, bezel = 0.04) {
+  const g = new THREE.Group();
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(w + bezel * 2, h + bezel * 2, 0.04), frameMat);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
+  face.position.z = 0.021;
+  g.add(frame, face);
+  g.position.set(x, 0.06 + h / 2 + bezel + 0.02, z); g.rotation.set(-0.08, ry, 0);
+  const stand = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.02, 0.18), frameMat); stand.position.set(x, 0.07, z + 0.04); stand.rotation.y = ry;
+  uiL.add(g, stand); return g;
+}
+const screens = [
+  screen(dashTex, 1.55, 0.97, -0.05, -0.45, 0),
+  screen(mapTex, 0.82, 0.6, -1.05, 0.35, 0.35),
+  screen(phoneTex, 0.36, 0.74, 1.1, 0.4, -0.35, 0.03),
+];
+
+const layers = [dataL, apiL, uiL];
+layers.forEach((g, i) => { g.userData.i = i - 1; dev.add(g); });
+
+// request packets travelling DB → API → UI
+const pipes = [[-1.2, -0.95], [1.38, -0.2], [0.6, 0.9], [-1.38, 0.0]];
 const pipeMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.35 });
 pipes.forEach(([x, z]) => dev.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, -2, z), new THREE.Vector3(x, 2, z)]), pipeMat)));
 const packets = [];
 const pGeo = new THREE.SphereGeometry(0.045, 12, 12);
 for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(pGeo, accentMat); m.userData = { p: pipes[i % pipes.length], o: Math.random(), s: 0.25 + Math.random() * 0.35, up: i % 2 === 0 }; dev.add(m); packets.push(m); }
-dev.rotation.set(0.62, -0.6, 0);
+dev.rotation.set(0.5, -0.6, 0);
 
 /* ---------- PRODUCER: spectrogram landscape driven by the playing beat ---------- */
 const prod = new THREE.Group(); anchor.add(prod);
@@ -1074,7 +1198,7 @@ function layout() {
   const wide = innerWidth > 1024;
   const rtl = document.documentElement.dir === 'rtl';
   anchor.position.x = wide ? (rtl ? -3.1 : 3.1) : 0;
-  anchor.position.y = wide ? 0 : 1.2;
+  anchor.position.y = wide ? -0.3 : 1.2;
   baseScale = wide ? 1 : innerWidth > 640 ? 0.75 : 0.55;
 }
 window.scene3d = { setMode: m => { mode = m; }, layout };
@@ -1108,10 +1232,11 @@ function tick() {
   dev.visible = dev.scale.x > 0.01; prod.visible = prod.scale.x > 0.01;
 
   if (dev.visible) {
-    const gap = 0.85 + Math.min(scrollP * 4, 1) * 0.9 + Math.sin(t * 0.8) * 0.05;
+    const gap = 1.15 + Math.min(scrollP * 4, 1) * 0.7 + Math.sin(t * 0.8) * 0.05;
     layers.forEach(g => { g.position.y = g.userData.i * gap; });
     dev.rotation.y = -0.6 + t * 0.12 * sp + px * 0.6;
-    dev.rotation.x = 0.62 + py * 0.3;
+    dev.rotation.x = 0.5 + py * 0.3;
+    screens.forEach((s, i) => { s.position.y += Math.sin(t * 1.2 + i) * 0.0008; });
     packets.forEach(m => {
       const u = m.userData; let f = (u.o + t * u.s * sp) % 1; if (!u.up) f = 1 - f;
       m.position.set(u.p[0], (f - 0.5) * gap * 2.4, u.p[1]);
