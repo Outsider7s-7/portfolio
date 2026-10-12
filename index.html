@@ -1023,13 +1023,15 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 1.4));
 const dirL = new THREE.DirectionalLight(0xffffff, 1.6); dirL.position.set(3, 6, 4); scene.add(dirL);
 const anchor = new THREE.Group(); scene.add(anchor);
 
-/* ---------- DEVELOPER: architecture stack — DATA (databases) / API (hex hub) / UI (app screens) ---------- */
+/* ---------- DEVELOPER: architecture stack — DATA (database network) / API (hex hub) / UI (apps + floating icons) ---------- */
 const dev = new THREE.Group(); anchor.add(dev);
-const slabMat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 });
+const slabMat = new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.02 });
 const edgeMat = new THREE.LineBasicMaterial();
 const accentMat = new THREE.MeshBasicMaterial();
 const labelMats = [];
-const INK = '#141416', ACC = '#ff4a1c', PAPER = '#f7f5f0', MUTE = '#a8a39a';
+const devAnims = [];                       // per-frame animations, run while the dev scene is visible
+const INK = '#141416', ACC = '#ff4a1c', MUTE = '#a8a39a';
+const GLOW = 0x4aa8ff;
 
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -1044,58 +1046,114 @@ function makeLabel(text) {
 }
 function slab(name) {
   const g = new THREE.Group();
-  const geo = new THREE.BoxGeometry(3, 0.12, 2.1);
+  const geo = new THREE.BoxGeometry(3.2, 0.12, 2.3);
   g.add(new THREE.Mesh(geo, slabMat), new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
-  const lab = makeLabel(name); lab.position.set(-1.0, 0.065, 0.85); g.add(lab);
+  const lab = makeLabel(name); lab.position.set(-1.1, 0.065, 0.95); g.add(lab);
   return g;
 }
 
-/* DATA — a cluster of database cylinders wired to a primary DB */
+/* glowing link with data particles flowing along it */
+const linkMat = new THREE.MeshBasicMaterial({ color: GLOW, transparent: true, opacity: 0.7 });
+const dotMat = new THREE.MeshBasicMaterial({ color: 0xbfe4ff });
+const dotGeo = new THREE.SphereGeometry(0.022, 10, 10);
+function flow(parent, a, b, { n = 2, speed = 0.35, mat = dotMat, back = false } = {}) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+  const curve = new THREE.LineCurve3(A, B);
+  parent.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 1, 0.007, 6, false), linkMat));
+  const dots = [];
+  for (let i = 0; i < n; i++) { const d = new THREE.Mesh(dotGeo, mat); parent.add(d); dots.push({ d, o: i / n + Math.random() * 0.2 }); }
+  devAnims.push(t => dots.forEach(({ d, o }) => { let f = (o + t * speed) % 1; if (back) f = 1 - f; d.position.lerpVectors(A, B, f); d.scale.setScalar(0.6 + Math.sin(f * Math.PI) * 0.8); }));
+}
+
+/* ============ DATA — database cluster on a glowing network ============ */
 const dataL = slab('DATA');
-const dbMat = new THREE.MeshStandardMaterial({ color: 0xd9d5cc, roughness: 0.35, metalness: 0.35 });
-function database(r, accent) {
-  const g = new THREE.Group();
+const steelMat = new THREE.MeshStandardMaterial({ color: 0xd3d8df, roughness: 0.3, metalness: 0.25 });
+const ringBlue = new THREE.MeshBasicMaterial({ color: 0x3b8cff });
+const ringOrange = new THREE.MeshBasicMaterial({ color: 0xff7a2f });
+function database(r, primary) {
+  const g = new THREE.Group(), h = r * 0.42, ring = primary ? ringOrange : ringBlue;
   for (let k = 0; k < 3; k++) {
-    const geo = new THREE.CylinderGeometry(r, r, r * 0.42, 40);
-    const disc = new THREE.Mesh(geo, accent && k === 2 ? accentMat : dbMat);
-    disc.position.y = 0.06 + r * 0.21 + k * r * 0.5;
-    const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat); e.position.copy(disc.position);
-    g.add(disc, e);
+    const y = 0.06 + h / 2 + k * (h + r * 0.06);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), steelMat); disc.position.y = y;
+    const band = new THREE.Mesh(new THREE.TorusGeometry(r * 1.005, r * 0.05, 8, 48), ring); band.rotation.x = Math.PI / 2; band.position.y = y + h * 0.18;
+    g.add(disc, band);
+  }
+  const topY = 0.06 + 3 * h + 2 * r * 0.06 + 0.002;
+  const cap = new THREE.Mesh(new THREE.TorusGeometry(r * 0.55, r * 0.07, 8, 40), ring); cap.rotation.x = Math.PI / 2; cap.position.y = topY;
+  g.add(cap);
+  return g;
+}
+const DB = [[0.15, -0.05, 0.32, true], [-1.1, -0.55, 0.17], [-1.15, 0.5, 0.17], [1.25, -0.6, 0.17], [1.25, 0.55, 0.17], [0.2, 0.85, 0.17], [-0.2, -0.95, 0.15]];
+DB.forEach(([x, z, r, p], i) => {
+  const d = database(r, p); d.position.set(x, 0, z); dataL.add(d);
+  devAnims.push(t => { d.position.y = Math.sin(t * 1.4 + i) * 0.012; });
+});
+const net = [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [1, 2], [3, 4], [2, 5], [4, 5], [1, 6], [3, 6]];
+net.forEach(([a, b], i) => flow(dataL, [DB[a][0], 0.075, DB[a][1]], [DB[b][0], 0.075, DB[b][1]], { n: a === 0 ? 2 : 1, speed: 0.25 + (i % 3) * 0.08, back: i % 2 === 1 }));
+devAnims.push(t => { ringBlue.color.setHSL(0.6, 1, 0.55 + Math.sin(t * 2) * 0.08); ringOrange.color.setHSL(0.06, 1, 0.55 + Math.sin(t * 2.4) * 0.06); });
+
+/* ============ API — hexagonal REST hub with coloured endpoints ============ */
+const apiL = slab('API');
+function hex(r, h, text, color, textColor = '#ffffff', size = 80) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.93, r, h, 6), new THREE.MeshStandardMaterial({ color, roughness: 0.45 }));
+  body.position.y = 0.06 + h / 2; body.rotation.y = Math.PI / 6;
+  g.add(body);
+  if (text) {
+    const tex = canvasTex(256, 256, (c, w) => {
+      c.fillStyle = color; c.fillRect(0, 0, w, w);
+      c.font = `900 ${size}px "Bricolage Grotesque", "Inter", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = 'rgba(0,0,0,.22)'; c.fillText(text, 131, 137);
+      c.fillStyle = textColor; c.fillText(text, 128, 132);
+    });
+    const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.92, 6), new THREE.MeshBasicMaterial({ map: tex }));
+    top.rotation.x = -Math.PI / 2; top.position.y = 0.06 + h + 0.002;
+    g.add(top);
+  } else {
+    const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.92, 6), new THREE.MeshBasicMaterial({ color })); top.rotation.x = -Math.PI / 2; top.position.y = 0.06 + h + 0.002; g.add(top);
   }
   return g;
 }
-const hubDb = database(0.3, true); hubDb.position.set(0.2, 0, -0.1); dataL.add(hubDb);
-const linkMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.45 });
-[[-1.0, -0.6], [-0.9, 0.45], [1.25, -0.65], [1.2, 0.5], [0.15, 0.75], [-0.25, -0.85]].forEach(([x, z]) => {
-  const d = database(0.16, false); d.position.set(x, 0, z); dataL.add(d);
-  dataL.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.2, 0.1, -0.1), new THREE.Vector3(x, 0.1, z)]), linkMat));
+const apiHub = hex(0.55, 0.26, 'API', '#ff5a1f', '#ffffff', 96); apiHub.position.set(0.1, 0, -0.05); apiL.add(apiHub);
+devAnims.push(t => { apiHub.position.y = 0.03 + Math.sin(t * 1.6) * 0.03; apiHub.rotation.y = Math.sin(t * 0.5) * 0.08; });
+const ENDPOINTS = [
+  ['GET', -1.05, -0.45, '#2fa36b', 0.26, 64], ['POST', 1.2, 0.2, '#3a7bff', 0.26, 54], ['JWT', 0.9, 0.8, '#7a4dff', 0.26, 62],
+  ['{ }', -0.55, 0.7, '#ffc22e', 0.27, 70, '#3a2a00'], ['DELETE', -0.55, -0.95, '#e5484d', 0.24, 40], ['PUT', 1.35, -0.75, '#ff9a3d', 0.18, 50],
+  [null, -1.3, 0.35, '#3a7bff', 0.12], [null, 0.55, -0.95, '#7a4dff', 0.12], [null, -0.15, 1.0, '#3a7bff', 0.11],
+];
+ENDPOINTS.forEach(([t, x, z, col, r, size, fg], i) => {
+  const s = hex(r, t ? 0.13 : 0.08, t, col, fg || '#ffffff', size); s.position.set(x, 0, z); apiL.add(s);
+  devAnims.push(tt => { s.position.y = Math.max(0, Math.sin(tt * 1.8 + i * 1.3)) * 0.05; });
+  if (t) flow(apiL, [0.1, 0.13, -0.05], [x, 0.11, z], { n: 2, speed: 0.4 + (i % 3) * 0.1, back: i % 2 === 0 });
 });
-
-/* API — hexagonal REST hub with endpoint satellites */
-const apiL = slab('API');
-function hexTex(text, bg, fg, size) {
-  return canvasTex(256, 256, g => {
-    g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
-    g.fillStyle = fg; g.font = `800 ${size}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 132);
-  });
-}
-function hex(r, h, text, bg, fg, size) {
+// gears
+const gearMat = new THREE.MeshStandardMaterial({ color: 0x9fb4cc, roughness: 0.4, metalness: 0.3 });
+function gear(r, teeth) {
   const g = new THREE.Group();
-  const geo = new THREE.CylinderGeometry(r, r, h, 6);
-  const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: bg, roughness: 0.5 }));
-  body.position.y = 0.06 + h / 2;
-  const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat); e.position.copy(body.position);
-  const top = new THREE.Mesh(new THREE.CircleGeometry(r * 0.98, 6), new THREE.MeshBasicMaterial({ map: hexTex(text, bg, fg, size) }));
-  top.rotation.x = -Math.PI / 2; top.rotation.z = Math.PI / 6; top.material.map.center.set(0.5, 0.5); top.material.map.rotation = Math.PI / 6; top.position.y = 0.06 + h + 0.002;
-  g.add(body, e, top); return g;
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.04, 24), gearMat));
+  for (let i = 0; i < teeth; i++) { const a = i / teeth * Math.PI * 2; const tooth = new THREE.Mesh(new THREE.BoxGeometry(r * 0.35, 0.04, r * 0.3), gearMat); tooth.position.set(Math.cos(a) * r * 1.08, 0, Math.sin(a) * r * 1.08); tooth.rotation.y = -a; g.add(tooth); }
+  const hole = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.35, r * 0.35, 0.045, 16), new THREE.MeshBasicMaterial({ color: 0xefece6 })); g.add(hole);
+  return g;
 }
-const apiHub = hex(0.5, 0.2, 'API', ACC, '#ffffff', 92); apiHub.position.set(0.1, 0, -0.05); apiL.add(apiHub);
-[['</>', -1.05, -0.55], ['GET', -1.0, 0.45], ['POST', 1.2, -0.55], ['JWT', 1.2, 0.45], ['{ }', 0.15, 0.75], ['SQL', 0.1, -0.85]].forEach(([t, x, z]) => {
-  const s = hex(0.24, 0.1, t, PAPER, INK, t.length > 3 ? 54 : 70); s.position.set(x, 0, z); apiL.add(s);
-  apiL.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.1, 0.12, -0.05), new THREE.Vector3(x, 0.12, z)]), linkMat));
+[[-0.45, 0.1, 0.13, 8, 1], [-0.2, 0.32, 0.09, 6, -1.4], [0.75, -0.45, 0.1, 7, 1.2]].forEach(([x, z, r, n, sp]) => {
+  const gg = gear(r, n); gg.position.set(x, 0.09, z); apiL.add(gg); devAnims.push(t => { gg.rotation.y = t * sp; });
 });
+// clouds
+const cloudMat = new THREE.MeshStandardMaterial({ color: 0xd6ebff, roughness: 0.8 });
+[[-0.9, 0.05], [0.65, 0.45]].forEach(([x, z], i) => {
+  const c = new THREE.Group();
+  [[0, 0, 0.12], [0.12, -0.01, 0.09], [-0.12, -0.02, 0.08], [0.05, 0.06, 0.08]].forEach(([dx, dy, r]) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), cloudMat); s.position.set(dx, dy, 0); s.scale.z = 0.6; c.add(s); });
+  c.position.set(x, 0.2, z); apiL.add(c);
+  devAnims.push(t => { c.position.y = 0.2 + Math.sin(t * 1.1 + i * 2) * 0.04; c.position.x = x + Math.sin(t * 0.4 + i) * 0.05; });
+});
+// binary stream
+const binTex = canvasTex(512, 64, g => { g.fillStyle = 'rgba(0,0,0,0)'; g.fillRect(0, 0, 512, 64); g.fillStyle = INK; g.font = '700 40px "JetBrains Mono", monospace'; g.fillText('01010011 01001110', 4, 46); });
+binTex.wrapS = THREE.RepeatWrapping;
+const bin = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.13), new THREE.MeshBasicMaterial({ map: binTex, transparent: true, opacity: 0.75 }));
+bin.rotation.x = -Math.PI / 2; bin.position.set(0.85, 0.065, -0.2); apiL.add(bin);
+devAnims.push(t => { binTex.offset.x = (t * 0.08) % 1; });
 
-/* UI — screenshots of the apps: monitoring dashboard, Khlisni mobile, station map */
+/* ============ UI — app screenshots + floating app icons ============ */
 const uiL = slab('UI');
 const dashTex = canvasTex(1024, 640, (g, w, h) => {
   g.fillStyle = '#f4f2ee'; g.fillRect(0, 0, w, h);
@@ -1106,6 +1164,7 @@ const dashTex = canvasTex(1024, 640, (g, w, h) => {
   g.fillStyle = ACC; rr(g, 18, 70, 134, 34, 8); g.fill();
   g.fillStyle = '#fff'; g.font = '600 16px sans-serif'; g.fillText('Dashboard', 34, 93);
   ['Stations', 'Audits', 'Photos', 'Reports'].forEach((t, i) => { g.fillStyle = '#9a978f'; g.fillText(t, 34, 145 + i * 40); });
+  [['#ff5f57', 300], ['#2fbf71', 340], ['#3a7bff', 380]].forEach(([c, y]) => { g.fillStyle = c; rr(g, 18, y + 160, 120, 6, 3); g.fill(); });
   [['Stations', '400+'], ['Uptime', '98.6%'], ['Audits', '1,284']].forEach(([k, v], i) => {
     const x = 196 + i * 270; g.fillStyle = '#fff'; rr(g, x, 70, 250, 110, 14); g.fill();
     g.fillStyle = MUTE; g.font = '600 16px sans-serif'; g.fillText(k.toUpperCase(), x + 20, 104);
@@ -1113,8 +1172,13 @@ const dashTex = canvasTex(1024, 640, (g, w, h) => {
   });
   g.fillStyle = '#fff'; rr(g, 196, 200, 520, 410, 14); g.fill();
   g.strokeStyle = '#ece9e3'; g.lineWidth = 2; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(216, 260 + i * 80); g.lineTo(696, 260 + i * 80); g.stroke(); }
-  g.strokeStyle = ACC; g.lineWidth = 5; g.beginPath();
-  [0.55, 0.62, 0.48, 0.7, 0.66, 0.82, 0.74, 0.9, 0.86, 0.95].forEach((v, i) => { const x = 220 + i * 52, y = 590 - v * 320; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  const series = (vals, col, fill) => {
+    g.beginPath(); vals.forEach((v, i) => { const x = 220 + i * 52, y = 590 - v * 320; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.lineTo(220 + (vals.length - 1) * 52, 590); g.lineTo(220, 590); g.closePath(); g.fillStyle = fill; g.fill();
+    g.beginPath(); vals.forEach((v, i) => { const x = 220 + i * 52, y = 590 - v * 320; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.strokeStyle = col; g.lineWidth = 4; g.stroke();
+  };
+  series([0.4, 0.5, 0.42, 0.6, 0.55, 0.7, 0.62, 0.78, 0.7, 0.82], '#7a8cff', 'rgba(122,140,255,.15)');
+  series([0.55, 0.62, 0.48, 0.7, 0.66, 0.82, 0.74, 0.9, 0.86, 0.95], ACC, 'rgba(255,74,28,.12)');
   g.fillStyle = INK; g.font = '700 20px sans-serif'; g.fillText('Station performance', 216, 236);
   g.fillStyle = '#fff'; rr(g, 736, 200, 260, 410, 14); g.fill();
   g.fillStyle = INK; g.font = '700 20px sans-serif'; g.fillText('Latest audits', 756, 236);
@@ -1138,11 +1202,12 @@ const phoneTex = canvasTex(400, 820, (g, w, h) => {
 });
 const mapTex = canvasTex(820, 600, (g, w, h) => {
   g.fillStyle = '#ece8df'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#cfe3d4'; rr(g, 300, 250, 160, 110, 20); g.fill(); rr(g, 600, 420, 140, 120, 20); g.fill();
   g.strokeStyle = '#ffffff'; g.lineWidth = 14;
   [[0, 120, w, 220], [0, 420, w, 330], [180, 0, 260, h], [560, 0, 480, h], [0, 560, w, 600]].forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
-  g.fillStyle = '#cfe3d4'; rr(g, 300, 250, 160, 110, 20); g.fill();
+  g.strokeStyle = '#3a7bff'; g.lineWidth = 6; g.setLineDash([14, 10]); g.beginPath(); g.moveTo(330, 180); g.lineTo(470, 300); g.lineTo(700, 380); g.stroke(); g.setLineDash([]);
   [[120, 90], [330, 180], [610, 140], [700, 380], [240, 470], [470, 520], [90, 330], [520, 300]].forEach(([x, y], i) => {
-    g.fillStyle = i === 3 ? INK : ACC; g.beginPath(); g.arc(x, y - 18, 16, Math.PI, 0); g.lineTo(x, y + 8); g.closePath(); g.fill();
+    g.fillStyle = i === 3 ? '#3a7bff' : '#e5484d'; g.beginPath(); g.arc(x, y - 18, 16, Math.PI, 0); g.lineTo(x, y + 8); g.closePath(); g.fill();
     g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y - 18, 6, 0, 7); g.fill();
   });
   g.fillStyle = '#fff'; rr(g, 20, 20, 250, 70, 14); g.fill();
@@ -1150,33 +1215,73 @@ const mapTex = canvasTex(820, 600, (g, w, h) => {
   g.fillStyle = '#1f9d5c'; g.font = '700 18px sans-serif'; g.fillText('● Audit OK', 38, 78);
 });
 const frameMat = new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.4 });
-function screen(tex, w, h, x, z, ry, bezel = 0.04) {
+const glowTex = canvasTex(256, 256, (g, w) => { const r = g.createRadialGradient(128, 128, 20, 128, 128, 128); r.addColorStop(0, 'rgba(255,170,120,.55)'); r.addColorStop(.6, 'rgba(160,140,255,.18)'); r.addColorStop(1, 'rgba(160,140,255,0)'); g.fillStyle = r; g.fillRect(0, 0, w, w); });
+function screen(tex, w, h, x, z, ry, bezel = 0.04, glow = false) {
   const g = new THREE.Group();
+  if (glow) { const gl = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.6, h * 1.7), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false })); gl.position.z = -0.05; g.add(gl); }
   const frame = new THREE.Mesh(new THREE.BoxGeometry(w + bezel * 2, h + bezel * 2, 0.04), frameMat);
   const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex }));
   face.position.z = 0.021;
   g.add(frame, face);
-  g.position.set(x, 0.06 + h / 2 + bezel + 0.02, z); g.rotation.set(-0.08, ry, 0);
+  const baseY = 0.06 + h / 2 + bezel + 0.02;
+  g.position.set(x, baseY, z); g.rotation.set(-0.08, ry, 0);
   const stand = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.02, 0.18), frameMat); stand.position.set(x, 0.07, z + 0.04); stand.rotation.y = ry;
-  uiL.add(g, stand); return g;
+  uiL.add(g, stand);
+  return { g, baseY };
 }
 const screens = [
-  screen(dashTex, 1.55, 0.97, -0.05, -0.45, 0),
-  screen(mapTex, 0.82, 0.6, -1.05, 0.35, 0.35),
-  screen(phoneTex, 0.36, 0.74, 1.1, 0.4, -0.35, 0.03),
+  screen(dashTex, 1.6, 1.0, -0.05, -0.45, 0, 0.045, true),
+  screen(mapTex, 0.85, 0.62, -1.15, 0.35, 0.35),
+  screen(phoneTex, 0.38, 0.78, 1.2, 0.4, -0.35, 0.03),
 ];
+screens.forEach((s, i) => devAnims.push(t => { s.g.position.y = s.baseY + Math.sin(t * 1.2 + i * 1.7) * 0.025; }));
+
+// floating app icons (always facing the camera)
+function iconTex(c1, c2, draw) {
+  return canvasTex(256, 256, g => {
+    const gr = g.createLinearGradient(0, 0, 256, 256); gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+    g.fillStyle = 'rgba(0,0,0,.18)'; rr(g, 18, 24, 224, 224, 54); g.fill();
+    g.fillStyle = gr; rr(g, 14, 12, 224, 224, 54); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.25)'; rr(g, 14, 12, 224, 90, 54); g.fill();
+    g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineJoin = 'round';
+    draw(g);
+  });
+}
+const ICONS = [
+  [iconTex('#ffb03a', '#ff5a1f', g => { g.beginPath(); g.arc(126, 96, 34, 0, 7); g.fill(); g.beginPath(); g.ellipse(126, 196, 62, 44, 0, Math.PI, 0); g.fill(); }), -0.85, 1.25, -0.55],
+  [iconTex('#ff7eb3', '#e8336d', g => { g.beginPath(); g.arc(126, 92, 32, 0, 7); g.fill(); g.beginPath(); g.ellipse(126, 190, 58, 40, 0, Math.PI, 0); g.fill(); g.fillStyle = 'rgba(255,255,255,.6)'; rr(g, 70, 200, 112, 14, 7); g.fill(); }), 0.55, 1.45, -0.7],
+  [iconTex('#5aa8ff', '#2f5bff', g => { g.lineWidth = 16; [80, 124, 168].forEach(y => { g.beginPath(); g.moveTo(52, y); g.lineTo(120, y); g.stroke(); }); g.beginPath(); g.arc(170, 124, 34, 0, 7); g.lineWidth = 14; g.stroke(); for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; g.beginPath(); g.moveTo(170 + Math.cos(a) * 34, 124 + Math.sin(a) * 34); g.lineTo(170 + Math.cos(a) * 50, 124 + Math.sin(a) * 50); g.stroke(); } }), 1.35, 1.15, -0.35],
+  [iconTex('#ffb03a', '#ff6a1f', g => { [[150, 0], [90, 0]].forEach(([x]) => { g.beginPath(); g.moveTo(x + 40, 76); g.lineTo(x - 30, 124); g.lineTo(x + 40, 172); g.closePath(); g.fill(); }); }), -0.35, 0.55, 0.15],
+  [iconTex('#ff8ac0', '#e83384', g => { g.lineWidth = 16; g.beginPath(); g.moveTo(100, 168); g.lineTo(100, 66); g.lineTo(178, 50); g.lineTo(178, 150); g.stroke(); g.beginPath(); g.ellipse(84, 172, 26, 20, -0.4, 0, 7); g.fill(); g.beginPath(); g.ellipse(162, 154, 26, 20, -0.4, 0, 7); g.fill(); }), 0.2, 0.45, 0.3],
+  [iconTex('#7cc4ff', '#3a6bff', g => { g.lineWidth = 12; [[80, 100], [124, 160], [168, 76]].forEach(([x, k]) => { g.beginPath(); g.moveTo(x, 56); g.lineTo(x, 196); g.stroke(); g.beginPath(); g.arc(x, k, 18, 0, 7); g.fill(); }); }), 0.85, 0.5, 0.35],
+];
+const iconGeo = new THREE.PlaneGeometry(0.3, 0.3);
+const icons = ICONS.map(([tex, x, y, z], i) => {
+  const m = new THREE.Mesh(iconGeo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.position.set(x, y, z); m.userData = { x, y, z, i }; uiL.add(m); return m;
+});
+const qParent = new THREE.Quaternion(), qSpin = new THREE.Quaternion(), zAxis = new THREE.Vector3(0, 0, 1);
+devAnims.push(t => {
+  uiL.getWorldQuaternion(qParent).invert();
+  icons.forEach(m => {
+    const { x, y, z, i } = m.userData;
+    m.position.set(x + Math.sin(t * 0.7 + i) * 0.05, y + Math.sin(t * 1.3 + i * 1.1) * 0.08, z);
+    qSpin.setFromAxisAngle(zAxis, Math.sin(t * 0.9 + i) * 0.15);
+    m.quaternion.copy(qParent).multiply(camera.quaternion).multiply(qSpin);   // billboard + gentle wobble
+  });
+});
 
 const layers = [dataL, apiL, uiL];
 layers.forEach((g, i) => { g.userData.i = i - 1; dev.add(g); });
 
-// request packets travelling DB → API → UI
-const pipes = [[-1.2, -0.95], [1.38, -0.2], [0.6, 0.9], [-1.38, 0.0]];
+// request packets travelling DB → API → UI through the layers
+const pipes = [[-1.35, -1.0], [1.5, -0.1], [0.6, 1.0], [-1.5, 0.05]];
 const pipeMat = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.35 });
 pipes.forEach(([x, z]) => dev.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, -2, z), new THREE.Vector3(x, 2, z)]), pipeMat)));
 const packets = [];
 const pGeo = new THREE.SphereGeometry(0.045, 12, 12);
 for (let i = 0; i < 16; i++) { const m = new THREE.Mesh(pGeo, accentMat); m.userData = { p: pipes[i % pipes.length], o: Math.random(), s: 0.25 + Math.random() * 0.35, up: i % 2 === 0 }; dev.add(m); packets.push(m); }
-dev.rotation.set(0.5, -0.6, 0);
+dev.rotation.set(0.56, -0.6, 0);
 
 /* ---------- PRODUCER: spectrogram landscape driven by the playing beat ---------- */
 const prod = new THREE.Group(); anchor.add(prod);
@@ -1210,7 +1315,7 @@ function layout() {
 }
 window.scene3d = { setMode: m => { mode = m; }, layout };
 layout();
-dev.scale.setScalar(mode === 'dev' ? baseScale : 0.001);
+dev.scale.setScalar(mode === 'dev' ? baseScale * 0.78 : 0.001);
 prod.scale.setScalar(mode === 'producer' ? baseScale : 0.001);
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); layout(); });
 
@@ -1234,16 +1339,16 @@ function tick() {
   labelMats.forEach(m => m.color.copy(C.ink));
   ptsMat.color.copy(C.ink); wireMat.color.copy(C.accent); sunMat.color.copy(C.accent); dustMat.color.copy(C.soft);
 
-  dev.scale.setScalar(THREE.MathUtils.lerp(dev.scale.x, mode === 'dev' ? baseScale : 0.001, 0.08));
+  dev.scale.setScalar(THREE.MathUtils.lerp(dev.scale.x, mode === 'dev' ? baseScale * 0.78 : 0.001, 0.08));
   prod.scale.setScalar(THREE.MathUtils.lerp(prod.scale.x, mode === 'producer' ? baseScale : 0.001, 0.08));
   dev.visible = dev.scale.x > 0.01; prod.visible = prod.scale.x > 0.01;
 
   if (dev.visible) {
-    const gap = 1.15 + Math.min(scrollP * 4, 1) * 0.7 + Math.sin(t * 0.8) * 0.05;
+    const gap = 2.05 + Math.min(scrollP * 4, 1) * 0.4 + Math.sin(t * 0.8) * 0.05;
     layers.forEach(g => { g.position.y = g.userData.i * gap; });
     dev.rotation.y = -0.6 + t * 0.12 * sp + px * 0.6;
-    dev.rotation.x = 0.5 + py * 0.3;
-    screens.forEach((s, i) => { s.position.y += Math.sin(t * 1.2 + i) * 0.0008; });
+    dev.rotation.x = 0.56 + py * 0.25;
+    devAnims.forEach(f => f(t));
     packets.forEach(m => {
       const u = m.userData; let f = (u.o + t * u.s * sp) % 1; if (!u.up) f = 1 - f;
       m.position.set(u.p[0], (f - 0.5) * gap * 2.4, u.p[1]);

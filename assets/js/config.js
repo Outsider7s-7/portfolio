@@ -7,6 +7,6 @@
  */
 window.AEM_CONFIG = {
   supabaseUrl: 'https://xdqwraqrnufuredwrqdo.supabase.co',
-  supabaseAnonKey: 'sb_publishable_9Ctuc98RbLr9K8_3JA3bkA_JUIY1L4B',  
+  supabaseAnonKey: '',  // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
   adminEmail: 'elmouradiiayoub@gmail.com',
 };
