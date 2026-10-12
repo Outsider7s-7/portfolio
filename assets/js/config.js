@@ -6,7 +6,7 @@
  * While these are empty, tracking is off and admin.html shows demo data.
  */
 window.AEM_CONFIG = {
-  supabaseUrl: 'https://xdqwraqrnufuredwrqdo.supabase.co',
-  supabaseAnonKey: '',  // e.g. 'eyJhbGciOiJIUzI1NiIsInR5cCI6...'
+supabaseUrl: 'https://xdqwraqrnufuredwrqdo.supabase.co',
+supabaseAnonKey: 'sb_publishable_9Ctuc98RbLr9K8_3JA3bkA_JUIY1L4B',
   adminEmail: 'elmouradiiayoub@gmail.com',
 };
